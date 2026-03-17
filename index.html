@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Hash Map — The Global Trail Archive</title>
+<meta name="description" content="The global archive of Hash House Harriers trails. On On.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inconsolata:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --jungle:    #1a3a2a;
+  --canopy:    #0f2419;
+  --leaf:      #2d6a4f;
+  --fern:      #40916c;
+  --moss:      #52b788;
+  --amber:     #d4881e;
+  --gold:      #f0a500;
+  --mud:       #8b5e3c;
+  --cream:     #f5f0e8;
+  --parchment: #e8dfc8;
+  --bark:      #3d2b1f;
+  --mist:      rgba(245,240,232,0.06);
+  --border:    rgba(245,240,232,0.12);
+  --border2:   rgba(245,240,232,0.05);
+  --danger:    #e05252;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;font-family:'Inconsolata',monospace;background:var(--canopy);color:var(--cream);}
+body::after{content:'';position:fixed;inset:0;opacity:0.03;pointer-events:none;z-index:9990;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:120px;}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh;}
+
+/* ── AD STRIP ── */
+.ad-strip{background:linear-gradient(90deg,var(--bark),#2a1a0f,var(--bark));border-bottom:1px solid rgba(212,136,30,0.22);height:54px;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
+.ad-label{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:7px;letter-spacing:3px;color:rgba(245,240,232,0.18);text-transform:uppercase;}
+.ad-unit{width:728px;max-width:calc(100% - 100px);height:40px;border:1px dashed rgba(212,136,30,0.18);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(245,240,232,0.15);letter-spacing:2px;background:rgba(255,255,255,0.02);}
+
+/* ── HEADER ── */
+header{background:linear-gradient(180deg,var(--canopy),rgba(15,36,25,0.97));border-bottom:2px solid rgba(212,136,30,0.28);flex-shrink:0;z-index:500;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 0;}
+.logo{display:flex;align-items:baseline;gap:10px;}
+.logo-main{font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--gold);letter-spacing:1px;line-height:1;text-shadow:0 0 40px rgba(240,165,0,0.25);}
+.logo-sub{font-size:9px;letter-spacing:4px;color:rgba(245,240,232,0.28);text-transform:uppercase;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.trail-pill{font-size:9px;color:rgba(245,240,232,0.28);letter-spacing:2px;padding:4px 10px;border:1px solid var(--border);background:var(--mist);}
+
+/* USER AVATAR / LOGIN */
+.user-chip{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--mist);border:1px solid var(--border);cursor:pointer;transition:all 0.15s;font-size:10px;color:rgba(245,240,232,0.6);}
+.user-chip:hover{border-color:var(--amber);color:var(--amber);}
+.user-avatar{width:24px;height:24px;border-radius:50%;background:var(--leaf);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;overflow:hidden;}
+.user-avatar img{width:100%;height:100%;object-fit:cover;}
+.badge-mini{display:inline-flex;align-items:center;gap:2px;font-size:10px;}
+
+nav{display:flex;gap:0;padding:0 20px;margin-top:8px;}
+.nav-btn{padding:8px 20px;font-family:'Inconsolata',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:rgba(245,240,232,0.38);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s;}
+.nav-btn:hover{color:var(--cream);}
+.nav-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* ── BUTTONS ── */
+.btn{border:none;cursor:pointer;font-family:'Inconsolata',monospace;letter-spacing:2px;text-transform:uppercase;transition:all 0.18s;font-weight:600;}
+.btn-primary{background:linear-gradient(135deg,var(--amber),var(--gold));color:var(--bark);padding:8px 16px;font-size:10px;box-shadow:0 2px 12px rgba(212,136,30,0.25);}
+.btn-primary:hover{box-shadow:0 4px 20px rgba(212,136,30,0.45);transform:translateY(-1px);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:rgba(245,240,232,0.55);padding:7px 14px;font-size:10px;}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+.btn-green{background:linear-gradient(135deg,var(--leaf),var(--fern));color:var(--cream);padding:8px 14px;font-size:10px;}
+.btn-green:hover{box-shadow:0 4px 16px rgba(64,145,108,0.4);transform:translateY(-1px);}
+.btn-danger{background:var(--danger);color:white;padding:7px 14px;font-size:10px;}
+
+/* ── PAGES ── */
+.page{display:none;flex:1;overflow:hidden;}
+.page.active{display:flex;}
+
+/* ═══ MAP PAGE ═══ */
+.map-layout{display:flex;flex:1;overflow:hidden;}
+#map{flex:1;}
+.map-sidebar{width:210px;flex-shrink:0;background:linear-gradient(180deg,var(--canopy),rgba(10,24,17,0.98));border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+.ms-panel{padding:13px;border-bottom:1px solid var(--border2);}
+.ms-label{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--moss);margin-bottom:9px;}
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.day-btn{background:transparent;border:1px solid var(--border2);color:rgba(245,240,232,0.3);font-family:'Inconsolata',monospace;font-size:8px;padding:5px 1px;cursor:pointer;text-align:center;transition:all 0.15s;}
+.day-btn:hover{border-color:var(--amber);color:var(--amber);}
+.day-btn.active{background:var(--leaf);border-color:var(--fern);color:var(--cream);}
+.day-btn.sunday.active{background:var(--amber);border-color:var(--gold);color:var(--bark);}
+.filter-hint{font-size:8px;color:rgba(245,240,232,0.2);margin-top:6px;line-height:1.5;}
+.stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border2);}
+.stat-row:last-child{border-bottom:none;}
+.sk{font-size:8px;color:rgba(245,240,232,0.35);letter-spacing:1px;}
+.sv{font-size:14px;color:var(--cream);font-weight:700;}
+.kennel-item{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:9px;color:rgba(245,240,232,0.45);cursor:pointer;border-bottom:1px solid var(--border2);transition:color 0.1s;}
+.kennel-item:hover{color:var(--cream);}
+.k-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.k-count{margin-left:auto;font-size:8px;color:rgba(245,240,232,0.22);}
+.geo-pill{display:flex;align-items:center;gap:6px;font-size:9px;color:rgba(245,240,232,0.3);padding:9px 13px;border-bottom:1px solid var(--border2);}
+.geo-dot{width:6px;height:6px;border-radius:50%;background:var(--moss);animation:gpulse 2s infinite;}
+@keyframes gpulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(82,183,136,0.4)}50%{opacity:0.5;box-shadow:0 0 0 4px rgba(82,183,136,0)}}
+
+/* ═══ KENNELS PAGE ═══ */
+.scroll-page{flex:1;overflow-y:auto;background:var(--jungle);padding:28px;}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--gold);line-height:1.1;}
+.page-title-sub{font-size:9px;letter-spacing:3px;color:rgba(245,240,232,0.28);text-transform:uppercase;margin-top:3px;}
+.kennel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;}
+.kennel-card{background:linear-gradient(135deg,rgba(26,58,42,0.8),rgba(15,36,25,0.9));border:1px solid var(--border);padding:18px;transition:all 0.2s;position:relative;overflow:hidden;}
+.kennel-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--fern),transparent);opacity:0;transition:opacity 0.2s;}
+.kennel-card:hover{border-color:rgba(82,183,136,0.3);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,0.4);}
+.kennel-card:hover::before{opacity:1;}
+.kc-logo{width:48px;height:48px;border-radius:50%;border:2px solid var(--border);margin-bottom:11px;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;background:var(--mist);}
+.kc-logo img{width:100%;height:100%;object-fit:cover;}
+.kc-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--cream);margin-bottom:3px;}
+.kc-meta{font-size:9px;color:var(--moss);letter-spacing:1px;margin-bottom:6px;}
+.kc-link{font-size:9px;color:var(--amber);text-decoration:none;}
+.kc-link:hover{color:var(--gold);}
+.kc-pips{display:flex;gap:3px;margin-top:10px;flex-wrap:wrap;}
+.kc-pip{width:5px;height:5px;border-radius:50%;background:var(--fern);opacity:0.5;}
+
+/* ═══ LEAGUE — KENNEL ═══ */
+.league-wrap{flex:1;overflow-y:auto;background:var(--jungle);padding:28px;}
+.sort-bar{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+.sort-btn{padding:6px 14px;font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:rgba(245,240,232,0.4);transition:all 0.15s;}
+.sort-btn:hover{border-color:var(--gold);color:var(--gold);}
+.sort-btn.active{background:var(--leaf);border-color:var(--fern);color:var(--cream);}
+table.ltable{width:100%;border-collapse:collapse;}
+table.ltable th{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--moss);padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);background:rgba(15,36,25,0.7);cursor:pointer;}
+table.ltable th.active-sort{color:var(--gold);}
+table.ltable th.r{text-align:right;}
+table.ltable td{padding:11px 12px;border-bottom:1px solid var(--border2);vertical-align:middle;}
+table.ltable tr:hover td{background:var(--mist);}
+.rank-cell{font-family:'Playfair Display',serif;font-size:20px;font-weight:900;text-align:center;width:44px;}
+.r1{color:var(--gold);}.r2{color:var(--parchment);}.r3{color:var(--amber);}.rx{color:rgba(245,240,232,0.22);}
+.lt-logo{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--mist);display:inline-flex;align-items:center;justify-content:center;font-size:14px;overflow:hidden;}
+.lt-logo img{width:100%;height:100%;object-fit:cover;}
+.lt-name{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:var(--cream);}
+.lt-sub{font-size:8px;color:rgba(245,240,232,0.3);letter-spacing:1px;margin-top:1px;}
+.lt-num{font-size:16px;font-weight:700;text-align:right;color:var(--cream);}
+.lt-numsub{font-size:8px;color:rgba(245,240,232,0.28);text-align:right;}
+.prog-bar-wrap{width:90px;height:3px;background:rgba(255,255,255,0.07);border-radius:2px;margin-left:auto;}
+.prog-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--leaf),var(--moss));}
+
+/* ═══ INDIVIDUAL LEADERBOARD ═══ */
+.badge-rack{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:20px;font-size:9px;letter-spacing:0.5px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);cursor:default;position:relative;}
+.badge:hover .badge-tip{opacity:1;pointer-events:none;}
+.badge-tip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:rgba(10,24,17,0.97);border:1px solid var(--border);padding:4px 8px;font-size:8px;white-space:nowrap;opacity:0;transition:opacity 0.15s;pointer-events:none;z-index:100;color:var(--cream);letter-spacing:1px;}
+.badge-dist{border-color:rgba(82,183,136,0.3);color:var(--moss);}
+.badge-hare{border-color:rgba(212,136,30,0.3);color:var(--amber);}
+.badge-country{border-color:rgba(74,144,226,0.3);color:#7ab8f5;}
+.no-badge{font-size:9px;color:rgba(245,240,232,0.2);font-style:italic;}
+
+/* ═══ MODALS ═══ */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.83);z-index:2000;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:linear-gradient(160deg,var(--jungle),var(--canopy));border:1px solid var(--border);width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:26px;position:relative;}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--amber),transparent);}
+.modal-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold);margin-bottom:3px;}
+.modal-sub{font-size:9px;color:rgba(245,240,232,0.26);letter-spacing:1px;margin-bottom:20px;}
+.fl{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--moss);margin-bottom:4px;display:block;}
+.fi{width:100%;background:rgba(245,240,232,0.05);border:1px solid var(--border);color:var(--cream);font-family:'Inconsolata',monospace;font-size:12px;padding:8px 11px;outline:none;transition:border-color 0.15s;margin-bottom:12px;}
+.fi:focus{border-color:var(--amber);}
+.fi:last-of-type{margin-bottom:0;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:12px;}
+.field-row .fi{margin-bottom:0;}
+.checkbox-row{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);background:var(--mist);margin-bottom:12px;cursor:pointer;}
+.checkbox-row input{margin-top:2px;accent-color:var(--amber);flex-shrink:0;}
+.checkbox-label{font-size:10px;color:rgba(245,240,232,0.7);line-height:1.5;}
+.checkbox-label strong{color:var(--cream);}
+.age-gate{background:rgba(212,136,30,0.08);border:1px solid rgba(212,136,30,0.2);padding:12px;margin-bottom:14px;}
+.age-gate-title{font-size:9px;letter-spacing:2px;color:var(--amber);margin-bottom:6px;text-transform:uppercase;}
+.age-gate p{font-size:9px;color:rgba(245,240,232,0.45);line-height:1.6;}
+.divider{height:1px;background:var(--border);margin:16px 0;}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.tab{padding:7px 14px;font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:rgba(245,240,232,0.3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.file-drop{border:2px dashed var(--border);padding:20px;text-align:center;cursor:pointer;transition:all 0.15s;}
+.file-drop:hover,.file-drop.dragover{border-color:var(--amber);background:rgba(212,136,30,0.04);}
+.fdt{font-size:10px;color:rgba(245,240,232,0.3);line-height:1.7;}
+.fdt strong{color:var(--cream);font-size:12px;display:block;margin-bottom:3px;}
+.fdt em{color:rgba(245,240,232,0.18);font-style:normal;font-size:8px;letter-spacing:1px;}
+#file-input{display:none;}
+.hare-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(212,136,30,0.07);border:1px solid rgba(212,136,30,0.18);margin-bottom:12px;cursor:pointer;}
+.hare-row input{accent-color:var(--amber);}
+.hare-label{font-size:10px;color:rgba(245,240,232,0.7);}
+.hare-label span{color:var(--amber);}
+.batch-info{margin-top:10px;display:none;}
+.prog-wrap{height:2px;background:rgba(255,255,255,0.07);margin-bottom:7px;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--leaf),var(--moss));transition:width 0.2s;width:0%;}
+.batch-list{max-height:120px;overflow-y:auto;border:1px solid var(--border2);}
+.bli{font-size:9px;padding:4px 8px;color:rgba(245,240,232,0.4);border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;}
+.bli:last-child{border-bottom:none;}
+.bw{color:rgba(245,240,232,0.2);}.bok{color:var(--moss);}.berr{color:var(--danger);}.bproc{color:var(--amber);}
+.modal-actions{display:flex;gap:9px;margin-top:16px;}
+.btn-submit{flex:1;background:linear-gradient(135deg,var(--amber),var(--gold));color:var(--bark);border:none;padding:10px;font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-weight:700;transition:all 0.18s;}
+.btn-submit:hover:not(:disabled){box-shadow:0 4px 20px rgba(212,136,30,0.4);transform:translateY(-1px);}
+.btn-submit:disabled{background:#1e2a22;color:rgba(245,240,232,0.2);cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-cancel{background:transparent;color:rgba(245,240,232,0.35);border:1px solid var(--border);padding:10px 14px;font-family:'Inconsolata',monospace;font-size:10px;cursor:pointer;transition:all 0.15s;}
+.btn-cancel:hover{border-color:var(--cream);color:var(--cream);}
+.status-msg{font-size:9px;margin-top:7px;min-height:14px;letter-spacing:1px;}
+.status-msg.err{color:var(--danger);}.status-msg.ok{color:var(--moss);}.status-msg.info{color:var(--amber);}
+.batch-summary{background:rgba(82,183,136,0.07);border:1px solid rgba(82,183,136,0.18);padding:13px;margin-top:13px;display:none;}
+.batch-summary.show{display:block;}
+.sum-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--moss);margin-bottom:6px;}
+.sum-row{font-size:9px;color:rgba(245,240,232,0.4);margin:2px 0;}
+.sum-row span{color:var(--cream);}
+
+/* PROFILE PANEL */
+.profile-panel{background:rgba(245,240,232,0.04);border:1px solid var(--border);padding:16px;margin-bottom:14px;}
+.profile-hashname{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold);}
+.profile-meta{font-size:9px;color:rgba(245,240,232,0.4);letter-spacing:1px;margin-top:2px;}
+.profile-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;}
+.profile-stat{text-align:center;padding:8px;background:var(--mist);border:1px solid var(--border2);}
+.profile-stat-val{font-size:18px;font-weight:700;color:var(--cream);}
+.profile-stat-label{font-size:8px;color:rgba(245,240,232,0.3);letter-spacing:1px;text-transform:uppercase;}
+
+/* LOGO DROP */
+.logo-drop{border:2px dashed var(--border);padding:14px;text-align:center;cursor:pointer;transition:all 0.15s;margin-bottom:12px;display:flex;align-items:center;gap:12px;}
+.logo-drop:hover{border-color:var(--amber);}
+.logo-preview{width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--border);background:var(--mist);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;overflow:hidden;}
+.logo-preview img{width:100%;height:100%;object-fit:cover;}
+.logo-drop-text{font-size:9px;color:rgba(245,240,232,0.3);text-align:left;line-height:1.5;}
+.logo-drop-text strong{color:var(--cream);display:block;margin-bottom:2px;}
+
+/* DONATE */
+.donate-bar{background:linear-gradient(135deg,var(--bark),#2a1a0f);border-top:1px solid rgba(212,136,30,0.18);padding:12px 20px;display:flex;align-items:center;justify-content:center;gap:14px;flex-shrink:0;}
+.donate-text{font-size:9px;color:rgba(245,240,232,0.35);letter-spacing:1px;}
+.paypal-btn{background:linear-gradient(135deg,#0070ba,#003087);color:white;border:none;padding:7px 18px;font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.18s;display:flex;align-items:center;gap:6px;}
+.paypal-btn:hover{box-shadow:0 4px 16px rgba(0,112,186,0.4);transform:translateY(-1px);}
+
+/* POPUP */
+.leaflet-popup-content-wrapper{background:rgba(10,24,17,0.97)!important;border:1px solid rgba(82,183,136,0.18)!important;border-radius:0!important;box-shadow:0 6px 28px rgba(0,0,0,0.7)!important;font-family:'Inconsolata',monospace!important;}
+.leaflet-popup-tip{background:rgba(10,24,17,0.97)!important;}
+.leaflet-popup-content{margin:12px 14px!important;}
+.pname{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--gold);margin-bottom:6px;}
+.prow{font-size:9px;color:rgba(245,240,232,0.45);margin:2px 0;letter-spacing:1px;}
+.prow span{color:var(--cream);}
+.phare{display:inline-block;font-size:9px;color:var(--amber);margin-top:4px;padding:2px 7px;border:1px solid rgba(212,136,30,0.3);background:rgba(212,136,30,0.08);}
+.pnotes{font-size:9px;color:rgba(245,240,232,0.38);margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.08);line-height:1.5;font-style:italic;}
+
+/* GDRIVE */
+.gdrive-box{background:rgba(212,136,30,0.06);border:1px solid rgba(212,136,30,0.15);padding:12px;margin-bottom:13px;}
+.gdrive-box-title{font-size:9px;letter-spacing:2px;color:var(--amber);margin-bottom:6px;}
+.gdrive-box p{font-size:9px;color:rgba(245,240,232,0.38);line-height:1.7;margin-bottom:4px;}
+.gdrive-box a{color:var(--amber);}
+.gdrive-box code{background:rgba(255,255,255,0.07);padding:1px 4px;font-size:9px;}
+.auth-box{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:10px;margin-bottom:10px;}
+.auth-ok{color:var(--moss);font-size:9px;}.auth-no{color:rgba(245,240,232,0.3);font-size:9px;}
+.auth-hint{font-size:8px;color:rgba(245,240,232,0.2);margin-top:3px;}
+.btn-gdrive{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--cream);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:2px;padding:8px;cursor:pointer;transition:all 0.15s;text-transform:uppercase;margin-bottom:7px;display:block;}
+.btn-gdrive:hover:not(:disabled){border-color:var(--amber);color:var(--amber);}
+.btn-gdrive:disabled{opacity:0.22;cursor:not-allowed;}
+
+/* NEW BADGE EARNED TOAST */
+.toast{position:fixed;bottom:80px;right:20px;background:var(--jungle);border:1px solid var(--amber);padding:12px 16px;z-index:9997;min-width:220px;animation:toastin 0.3s ease;display:none;}
+.toast.show{display:block;}
+@keyframes toastin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.toast-title{font-size:9px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;margin-bottom:4px;}
+.toast-body{font-size:12px;color:var(--cream);}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--canopy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px;transition:opacity 0.5s;}
+#loading.hidden{opacity:0;pointer-events:none;}
+.ld-icon{font-size:44px;animation:sway 2.5s ease-in-out infinite;}
+@keyframes sway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+.ld-title{font-family:'Playfair Display',serif;font-size:38px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.ld-sub{font-size:9px;letter-spacing:5px;color:rgba(245,240,232,0.22);text-transform:uppercase;}
+.ld-bar{width:160px;height:2px;background:rgba(255,255,255,0.07);overflow:hidden;}
+.ld-fill{height:100%;background:linear-gradient(90deg,var(--leaf),var(--amber));animation:lb 1.4s ease-in-out infinite;}
+@keyframes lb{0%{width:0;margin-left:0}50%{width:55%;margin-left:20%}100%{width:0;margin-left:100%}}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(82,183,136,0.18);}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="ld-icon">🌿</div>
+  <div class="ld-title">World Hash Map</div>
+  <div class="ld-sub">On On · Loading trails</div>
+  <div class="ld-bar"><div class="ld-fill"></div></div>
+</div>
+
+<!-- BADGE EARNED TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-title">🎉 Badge Unlocked!</div>
+  <div class="toast-body" id="toast-body"></div>
+</div>
+
+<div class="app">
+  <!-- AD -->
+  <div class="ad-strip">
+    <span class="ad-label">Advertisement</span>
+    <div class="ad-unit">ADSENSE LEADERBOARD 728×90 — replace with your ad code</div>
+  </div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-top">
+      <div class="logo">
+        <span class="logo-main">World Hash Map</span>
+        <span class="logo-sub">The Global Trail Archive · On On</span>
+      </div>
+      <div class="header-right">
+        <span class="trail-pill" id="trail-pill">— trails</span>
+        <div class="user-chip" id="user-chip" onclick="handleUserChipClick()">
+          <div class="user-avatar" id="user-avatar">👤</div>
+          <span id="user-chip-label">Sign In / Register</span>
+        </div>
+        <button class="btn btn-green" id="btn-upload-header" onclick="requireAuth(()=>showModal('upload'))" style="display:none">+ Upload Runs</button>
+        <button class="btn btn-outline" onclick="showModal('kennel')">Register Kennel</button>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" onclick="showPage('map')">🗺 Map</button>
+      <button class="nav-btn" onclick="showPage('kennels')">🏃 Kennels</button>
+      <button class="nav-btn" onclick="showPage('kleague')">🏆 Kennel League</button>
+      <button class="nav-btn" onclick="showPage('ileague')">⭐ Hashers</button>
+    </nav>
+  </header>
+
+  <!-- PAGE: MAP -->
+  <div class="page active" id="page-map">
+    <div class="map-layout">
+      <div id="map"></div>
+      <div class="map-sidebar">
+        <div class="geo-pill"><div class="geo-dot"></div><span id="geo-label">Locating…</span></div>
+        <div class="ms-panel">
+          <div class="ms-label">Filter by Day</div>
+          <div class="day-grid">
+            <button class="day-btn active" data-day="0" onclick="toggleDay(0)">Mo</button>
+            <button class="day-btn active" data-day="1" onclick="toggleDay(1)">Tu</button>
+            <button class="day-btn active" data-day="2" onclick="toggleDay(2)">We</button>
+            <button class="day-btn active" data-day="3" onclick="toggleDay(3)">Th</button>
+            <button class="day-btn active" data-day="4" onclick="toggleDay(4)">Fr</button>
+            <button class="day-btn active" data-day="5" onclick="toggleDay(5)">Sa</button>
+            <button class="day-btn sunday active" data-day="6" onclick="toggleDay(6)">Su</button>
+          </div>
+          <div class="filter-hint">Su = kids' / family runs</div>
+        </div>
+        <div class="ms-panel">
+          <div class="ms-label">Global Stats</div>
+          <div class="stat-row"><span class="sk">Trails</span><span class="sv" id="stat-total">0</span></div>
+          <div class="stat-row"><span class="sk">Total KM</span><span class="sv" id="stat-km">0</span></div>
+          <div class="stat-row"><span class="sk">Kennels</span><span class="sv" id="stat-kennels">0</span></div>
+          <div class="stat-row"><span class="sk">Hashers</span><span class="sv" id="stat-hashers">0</span></div>
+        </div>
+        <div class="ms-panel" style="flex:1">
+          <div class="ms-label">Active Kennels</div>
+          <div id="map-kennel-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: KENNELS -->
+  <div class="page" id="page-kennels">
+    <div class="scroll-page">
+      <div class="page-header">
+        <div><div class="page-title">Kennels</div><div class="page-title-sub">Registered hash kennels worldwide</div></div>
+        <button class="btn btn-primary" onclick="showModal('kennel')">+ Register Your Kennel</button>
+      </div>
+      <div class="kennel-grid" id="kennel-grid">
+        <div style="font-size:11px;color:rgba(245,240,232,0.2);font-style:italic;padding:20px;">No kennels registered yet — On On!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: KENNEL LEAGUE -->
+  <div class="page" id="page-kleague">
+    <div class="league-wrap">
+      <div class="page-header">
+        <div><div class="page-title">Kennel League</div><div class="page-title-sub">Ranked by trails uploaded · live</div></div>
+      </div>
+      <div class="sort-bar">
+        <button class="sort-btn active" onclick="sortKLeague('runs',this)">Most Runs</button>
+        <button class="sort-btn" onclick="sortKLeague('km',this)">Most KM</button>
+      </div>
+      <table class="ltable"><thead><tr>
+        <th style="width:44px">#</th><th style="width:44px"></th>
+        <th>Kennel</th>
+        <th class="r">Runs</th><th class="r">KM</th><th class="r" style="width:110px">Bar</th>
+      </tr></thead><tbody id="kleague-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- PAGE: INDIVIDUAL LEADERBOARD -->
+  <div class="page" id="page-ileague">
+    <div class="league-wrap">
+      <div class="page-header">
+        <div><div class="page-title">Hashers</div><div class="page-title-sub">Individual leaderboard · click a hasher to see their badges</div></div>
+      </div>
+      <div class="sort-bar">
+        <button class="sort-btn active" onclick="sortILeague('runs',this)">Most Runs</button>
+        <button class="sort-btn" onclick="sortILeague('km',this)">Most KM</button>
+        <button class="sort-btn" onclick="sortILeague('countries',this)">Most Countries</button>
+        <button class="sort-btn" onclick="sortILeague('hare',this)">Most Hare Sets</button>
+        <button class="sort-btn" onclick="sortILeague('kennels',this)">Most Kennels</button>
+      </div>
+      <table class="ltable"><thead><tr>
+        <th style="width:44px">#</th>
+        <th>Hash Name</th><th>Home Kennel</th>
+        <th class="r">Runs</th><th class="r">KM</th>
+        <th class="r">Countries</th><th class="r">Hare</th><th class="r">Kennels</th>
+        <th>Badges</th>
+      </tr></thead><tbody id="ileague-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- DONATE -->
+  <div class="donate-bar">
+    <span class="donate-text">World Hash Map is free forever · keep the trails alive</span>
+    <form action="https://www.paypal.com/donate" method="post" target="_blank" style="display:inline">
+      <input type="hidden" name="business" value="YOUR-PAYPAL-EMAIL@EMAIL.COM">
+      <input type="hidden" name="currency_code" value="USD">
+      <input type="hidden" name="item_name" value="Buy World Hash Map a beer 🍺">
+      <button type="submit" class="paypal-btn">🍺 Buy me a beer</button>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: REGISTER / LOGIN
+══════════════════════════════════════ -->
+<div class="overlay" id="overlay-auth" onclick="handleOverlay(event,'auth')">
+  <div class="modal" style="width:460px">
+    <div class="modal-title" id="auth-title">Join the Hash</div>
+    <div class="modal-sub" id="auth-sub">Create your account · On On</div>
+
+    <!-- REGISTER FORM -->
+    <div id="auth-register">
+      <div class="age-gate">
+        <div class="age-gate-title">⚠ Mature Content Notice</div>
+        <p>Hash House Harriers culture includes adult humour, crude hash names, and colourful language. This site displays hasher names as provided — including content of a mature nature.</p>
+      </div>
+      <label class="checkbox-row" style="margin-bottom:14px">
+        <input type="checkbox" id="reg-age">
+        <span class="checkbox-label"><strong>I confirm I am 18 years of age or older</strong> and understand this site may contain content of a mature nature.</span>
+      </label>
+      <div class="divider"></div>
+      <label class="fl">Your Hash Name *</label>
+      <input class="fi" id="reg-hashname" type="text" placeholder="e.g. Just Thomas, Rubber Chicken…">
+      <label class="fl">Email *</label>
+      <input class="fi" id="reg-email" type="email" placeholder="your@email.com">
+      <label class="fl">Password *</label>
+      <input class="fi" id="reg-pass" type="password" placeholder="minimum 6 characters">
+      <label class="fl">Home Kennel</label>
+      <input class="fi" id="reg-kennel" type="text" placeholder="e.g. Singapore HHH" list="kennel-datalist-auth">
+      <datalist id="kennel-datalist-auth"></datalist>
+      <div class="status-msg" id="reg-status"></div>
+      <div class="modal-actions">
+        <button class="btn-submit" onclick="doRegister()">Create Account</button>
+        <button class="btn-cancel" onclick="switchAuth('login')">Already a member →</button>
+      </div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="auth-login" style="display:none">
+      <label class="fl">Email</label>
+      <input class="fi" id="login-email" type="email" placeholder="your@email.com">
+      <label class="fl">Password</label>
+      <input class="fi" id="login-pass" type="password" placeholder="your password">
+      <div class="status-msg" id="login-status"></div>
+      <div class="modal-actions">
+        <button class="btn-submit" onclick="doLogin()">Sign In</button>
+        <button class="btn-cancel" onclick="switchAuth('register')">New member →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: PROFILE
+══════════════════════════════════════ -->
+<div class="overlay" id="overlay-profile" onclick="handleOverlay(event,'profile')">
+  <div class="modal" style="width:480px">
+    <div class="modal-title">My Profile</div>
+    <div class="modal-sub">Your hash journey at a glance</div>
+    <div class="profile-panel">
+      <div class="profile-hashname" id="prof-hashname">—</div>
+      <div class="profile-meta" id="prof-meta">—</div>
+      <div class="profile-stats">
+        <div class="profile-stat"><div class="profile-stat-val" id="prof-runs">0</div><div class="profile-stat-label">Runs</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" id="prof-km">0</div><div class="profile-stat-label">KM</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" id="prof-countries">0</div><div class="profile-stat-label">Countries</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" id="prof-hare">0</div><div class="profile-stat-label">Hare Sets</div></div>
+      </div>
+      <div class="ms-label" style="margin-bottom:8px">My Badges</div>
+      <div class="badge-rack" id="prof-badges"><span class="no-badge">No badges yet — get running!</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="doLogout()">Sign Out</button>
+      <button class="btn-cancel" onclick="hideModal('profile')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: UPLOAD
+══════════════════════════════════════ -->
+<div class="overlay" id="overlay-upload" onclick="handleOverlay(event,'upload')">
+  <div class="modal">
+    <div class="modal-title">Upload Runs</div>
+    <div class="modal-sub">Trail name and date are read automatically from each GPX file</div>
+    <div class="field-row">
+      <div><label class="fl">Hash Name</label><input class="fi" id="u-hasher" type="text" placeholder="auto-filled from account" readonly style="opacity:0.6"></div>
+      <div><label class="fl">Kennel</label><input class="fi" id="u-kennel" type="text" placeholder="auto-filled from account" list="kennel-datalist-upload"><datalist id="kennel-datalist-upload"></datalist></div>
+    </div>
+    <label class="fl">Notes (optional)</label>
+    <input class="fi" id="u-notes" type="text" placeholder="e.g. Monday evening runs 2024" style="margin-bottom:14px">
+    <label class="hare-row">
+      <input type="checkbox" id="u-hare">
+      <span class="hare-label">🐇 I am the <span>Hare</span> — I set this trail</span>
+    </label>
+    <div class="tabs">
+      <button class="tab active" onclick="switchUploadTab('files')">📁 From Device</button>
+      <button class="tab" onclick="switchUploadTab('gdrive')">☁️ Google Drive</button>
+    </div>
+    <div class="tab-content active" id="utab-files">
+      <div class="file-drop" id="file-drop" onclick="document.getElementById('file-input').click()"
+           ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="file-input" accept=".gpx" multiple onchange="handleFileSelect(event)">
+        <div class="fdt"><strong>Drop GPX files here</strong>Select as many as you like — whole export folders welcome<br><em>STRAVA · GARMIN · APPLE HEALTH · KOMOOT · ANY GPX</em></div>
+      </div>
+      <div class="batch-info" id="bi-files"><div class="prog-wrap"><div class="prog-fill" id="pf-files"></div></div><div class="batch-list" id="bl-files"></div></div>
+    </div>
+    <div class="tab-content" id="utab-gdrive">
+      <div class="gdrive-box">
+        <div class="gdrive-box-title">⚙ One-time setup</div>
+        <p>Get a free <strong>Google API Client ID</strong> at <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → Credentials → OAuth 2.0 Client ID. Enable <code>Google Drive API</code> + <code>Google Picker API</code>.</p>
+        <label class="fl" style="margin-top:8px">Google API Client ID</label>
+        <input class="fi" id="gdrive-cid" type="text" placeholder="xxxx.apps.googleusercontent.com" oninput="localStorage.setItem('gcid',this.value)" style="margin-bottom:0">
+      </div>
+      <div class="auth-box"><div id="g-auth-status" class="auth-no">Not signed in to Google</div><div class="auth-hint">Sign in to browse your Drive folders</div></div>
+      <button class="btn-gdrive" id="btn-gauth" onclick="gdriveSignIn()">Sign in with Google</button>
+      <button class="btn-gdrive" id="btn-gpick" onclick="gdrivePicker()" disabled>Choose Drive Folder →</button>
+      <div id="g-folder-info" style="display:none;font-size:9px;color:rgba(245,240,232,0.3);margin-bottom:9px;">
+        Folder: <span id="g-fname" style="color:var(--amber)"></span>
+        <span id="g-fcount" style="margin-left:6px;color:rgba(245,240,232,0.2)"></span>
+      </div>
+      <div class="batch-info" id="bi-gdrive"><div class="prog-wrap"><div class="prog-fill" id="pf-gdrive"></div></div><div class="batch-list" id="bl-gdrive"></div></div>
+    </div>
+    <div class="status-msg" id="upload-status"></div>
+    <div class="batch-summary" id="batch-summary">
+      <div class="sum-title">Batch Complete 🌿</div>
+      <div class="sum-row">Added: <span id="sum-ok">0</span></div>
+      <div class="sum-row">Skipped: <span id="sum-err">0</span></div>
+      <div class="sum-row">Total KM: <span id="sum-km">0</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-submit" id="btn-submit" onclick="submitRuns()" disabled>Upload to Map</button>
+      <button class="btn-cancel" onclick="hideModal('upload')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: KENNEL REGISTRY
+══════════════════════════════════════ -->
+<div class="overlay" id="overlay-kennel" onclick="handleOverlay(event,'kennel')">
+  <div class="modal">
+    <div class="modal-title">Register Your Kennel</div>
+    <div class="modal-sub">Add your kennel to the global directory</div>
+    <label class="fl">Kennel Name *</label>
+    <input class="fi" id="k-name" type="text" placeholder="e.g. Singapore Hash House Harriers">
+    <label class="fl">City / Country *</label>
+    <input class="fi" id="k-location" type="text" placeholder="e.g. Singapore">
+    <label class="fl">Website URL</label>
+    <input class="fi" id="k-url" type="text" placeholder="https://...">
+    <label class="fl">About your kennel</label>
+    <input class="fi" id="k-about" type="text" placeholder="e.g. Monday evenings since 1962">
+    <label class="fl">Kennel Logo</label>
+    <div class="logo-drop" onclick="document.getElementById('logo-input').click()">
+      <input type="file" id="logo-input" accept="image/*" onchange="handleLogoSelect(event)" style="display:none">
+      <div class="logo-preview" id="logo-preview">🏃</div>
+      <div class="logo-drop-text"><strong>Upload logo</strong>PNG / JPG · 200×200px recommended</div>
+    </div>
+    <div class="status-msg" id="kennel-status"></div>
+    <div class="modal-actions">
+      <button class="btn-submit" onclick="submitKennel()">Register Kennel</button>
+      <button class="btn-cancel" onclick="hideModal('kennel')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════
+const TRAIL_COLORS=['#52b788','#d4881e','#4a90e2','#e05252','#bd10e0','#f0a500','#6bcb77','#4d96ff','#c77dff','#ff9a3c','#50e3c2','#a8dadc','#e9c46a','#f72585','#7209b7'];
+
+const DIST_BADGES=[
+  {km:50,  icon:'🥾', label:'50km Club',    tip:'Ran 50km total'},
+  {km:100, icon:'🏃', label:'Century',      tip:'Ran 100km total'},
+  {km:250, icon:'🌟', label:'250km Star',   tip:'Ran 250km total'},
+  {km:500, icon:'🔥', label:'500km Blaze',  tip:'Ran 500km total'},
+  {km:1000,icon:'💀', label:'Skull 1000',   tip:'Ran 1000km total'},
+  {km:2500,icon:'🐐', label:'GOAT 2500',    tip:'Ran 2500km total'},
+];
+const HARE_BADGES=[
+  {n:1,  icon:'🐇', label:'First Hare',   tip:'Set your first trail'},
+  {n:5,  icon:'🐇🐇',label:'5 Hares',     tip:'Set 5 trails'},
+  {n:10, icon:'⭐', label:'10 Hares',     tip:'Set 10 trails'},
+  {n:25, icon:'🌶', label:'Hot Hare 25',  tip:'Set 25 trails'},
+  {n:50, icon:'👑', label:'Hare King 50', tip:'Set 50 trails'},
+];
+const COUNTRY_BADGES=[
+  {n:1,  icon:'🌍', label:'1 Country',    tip:'Hashed in 1 country'},
+  {n:3,  icon:'🌍🌍',label:'3 Countries', tip:'Hashed in 3 countries'},
+  {n:5,  icon:'✈️', label:'5 Countries',  tip:'Hashed in 5 countries'},
+  {n:10, icon:'🗺',  label:'10 Countries',tip:'Hashed in 10 countries'},
+  {n:25, icon:'🌐', label:'Hash Tourist', tip:'Hashed in 25 countries'},
+];
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let map, allRuns=[], layers=[], allKennels=[], allUsers=[];
+let activeDays=new Set([0,1,2,3,4,5,6]);
+let kennelColorMap={};
+let selectedFiles=[], gdriveFiles=[];
+let gapiReady=false, gisReady=false, tokenClient=null, accessToken=null;
+let pendingLogoData=null;
+let currentUser=null; // {id,hashName,email,password,homeKennel,registeredAt}
+let kLeagueSort='runs', iLeagueSort='runs';
+
+// ═══════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════
+function loadUsers(){try{allUsers=JSON.parse(localStorage.getItem('whm_users')||'[]');}catch(e){allUsers=[];}}
+function saveUsers(){localStorage.setItem('whm_users',JSON.stringify(allUsers));}
+function loadSession(){try{const s=localStorage.getItem('whm_session');if(s){const u=JSON.parse(s);currentUser=allUsers.find(x=>x.id===u.id)||null;}}catch(e){}}
+function saveSession(){if(currentUser)localStorage.setItem('whm_session',JSON.stringify({id:currentUser.id}));else localStorage.removeItem('whm_session');}
+
+function requireAuth(cb){
+  if(currentUser) cb();
+  else { showModal('auth'); switchAuth('register'); pendingAuthCallback=cb; }
+}
+let pendingAuthCallback=null;
+
+function switchAuth(mode){
+  document.getElementById('auth-register').style.display=mode==='register'?'block':'none';
+  document.getElementById('auth-login').style.display=mode==='login'?'block':'none';
+  document.getElementById('auth-title').textContent=mode==='register'?'Join the Hash':'Welcome Back';
+  document.getElementById('auth-sub').textContent=mode==='register'?'Create your account · On On':'Sign in to your account';
+}
+
+function doRegister(){
+  const age=document.getElementById('reg-age').checked;
+  const hashName=document.getElementById('reg-hashname').value.trim();
+  const email=document.getElementById('reg-email').value.trim().toLowerCase();
+  const pass=document.getElementById('reg-pass').value;
+  const kennel=document.getElementById('reg-kennel').value.trim();
+  const st=document.getElementById('reg-status');
+  if(!age){st.textContent='⚠ You must confirm you are 18+';st.className='status-msg err';return;}
+  if(!hashName){st.textContent='⚠ Hash name is required';st.className='status-msg err';return;}
+  if(!email||!email.includes('@')){st.textContent='⚠ Valid email required';st.className='status-msg err';return;}
+  if(pass.length<6){st.textContent='⚠ Password must be at least 6 characters';st.className='status-msg err';return;}
+  if(allUsers.find(u=>u.email===email)){st.textContent='⚠ Email already registered';st.className='status-msg err';return;}
+  const user={id:Date.now().toString(),hashName,email,password:btoa(pass),homeKennel:kennel,registeredAt:new Date().toISOString()};
+  allUsers.push(user);saveUsers();
+  currentUser=user;saveSession();
+  hideModal('auth');
+  updateUserUI();
+  if(pendingAuthCallback){pendingAuthCallback();pendingAuthCallback=null;}
+}
+
+function doLogin(){
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  const st=document.getElementById('login-status');
+  const user=allUsers.find(u=>u.email===email&&u.password===btoa(pass));
+  if(!user){st.textContent='⚠ Email or password incorrect';st.className='status-msg err';return;}
+  currentUser=user;saveSession();
+  hideModal('auth');updateUserUI();
+  if(pendingAuthCallback){pendingAuthCallback();pendingAuthCallback=null;}
+}
+
+function doLogout(){
+  currentUser=null;saveSession();
+  hideModal('profile');updateUserUI();
+}
+
+function handleUserChipClick(){
+  if(currentUser) showModal('profile');
+  else { showModal('auth'); switchAuth('register'); }
+}
+
+function updateUserUI(){
+  const chip=document.getElementById('user-chip');
+  const label=document.getElementById('user-chip-label');
+  const avatar=document.getElementById('user-avatar');
+  const uploadBtn=document.getElementById('btn-upload-header');
+  if(currentUser){
+    label.textContent=currentUser.hashName;
+    avatar.textContent=currentUser.hashName.charAt(0).toUpperCase();
+    uploadBtn.style.display='inline-block';
+    // pre-fill upload modal
+    document.getElementById('u-hasher').value=currentUser.hashName;
+    document.getElementById('u-kennel').value=currentUser.homeKennel||'';
+    // update profile modal
+    updateProfileModal();
+  } else {
+    label.textContent='Sign In / Register';
+    avatar.textContent='👤';
+    uploadBtn.style.display='none';
+  }
+  renderILeague();
+}
+
+function updateProfileModal(){
+  if(!currentUser) return;
+  const myRuns=allRuns.filter(r=>r.userId===currentUser.id);
+  const totalKm=Math.round(myRuns.reduce((s,r)=>s+(r.distKm||0),0)*10)/10;
+  const countries=new Set(myRuns.map(r=>r.country).filter(Boolean)).size;
+  const hare=myRuns.filter(r=>r.isHare).length;
+  document.getElementById('prof-hashname').textContent=currentUser.hashName;
+  document.getElementById('prof-meta').textContent=(currentUser.homeKennel||'No home kennel')+' · member since '+new Date(currentUser.registeredAt).getFullYear();
+  document.getElementById('prof-runs').textContent=myRuns.length;
+  document.getElementById('prof-km').textContent=totalKm;
+  document.getElementById('prof-countries').textContent=countries;
+  document.getElementById('prof-hare').textContent=hare;
+  const badges=computeBadges({runs:myRuns.length,km:totalKm,countries,hare});
+  document.getElementById('prof-badges').innerHTML=badges.length?badges.map(b=>`<div class="badge badge-${b.type}">${b.icon} ${b.label}<div class="badge-tip">${b.tip}</div></div>`).join(''):'<span class="no-badge">No badges yet — get running!</span>';
+}
+
+function computeBadges({runs,km,countries,hare}){
+  const badges=[];
+  DIST_BADGES.forEach(b=>{if(km>=b.km)badges.push({...b,type:'dist'});});
+  HARE_BADGES.forEach(b=>{if(hare>=b.n)badges.push({...b,type:'hare'});});
+  COUNTRY_BADGES.forEach(b=>{if(countries>=b.n)badges.push({...b,type:'country'});});
+  return badges;
+}
+
+// ═══════════════════════════════════════════════════
+//  MAP
+// ═══════════════════════════════════════════════════
+function initMap(){
+  map=L.map('map',{center:[20,0],zoom:3,zoomControl:false});
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri',maxZoom:19}).addTo(map);
+  L.control.zoom({position:'bottomleft'}).addTo(map);
+}
+function locateUser(){
+  if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>{map.setView([p.coords.latitude,p.coords.longitude],11);document.getElementById('geo-label').textContent='Your location';},()=>ipGeo());
+  else ipGeo();
+}
+async function ipGeo(){try{const r=await fetch('https://ipapi.co/json/');const d=await r.json();if(d.latitude){map.setView([d.latitude,d.longitude],11);document.getElementById('geo-label').textContent=d.city||'Located';}}catch(e){document.getElementById('geo-label').textContent='Worldwide view';}}
+
+// ═══════════════════════════════════════════════════
+//  STORAGE (shared)
+// ═══════════════════════════════════════════════════
+async function saveRunShared(run){try{await window.storage.set('run:'+run.id,JSON.stringify(run),true);}catch(e){}}
+async function saveKennelShared(k){try{await window.storage.set('kennel:'+k.id,JSON.stringify(k),true);}catch(e){}}
+async function loadSharedData(){
+  try{
+    const rr=await window.storage.list('run:',true);
+    if(rr?.keys)for(const k of rr.keys){try{const r=await window.storage.get(k,true);if(r?.value)allRuns.push(JSON.parse(r.value));}catch(e){}}
+    const kk=await window.storage.list('kennel:',true);
+    if(kk?.keys)for(const k of kk.keys){try{const r=await window.storage.get(k,true);if(r?.value)allKennels.push(JSON.parse(r.value));}catch(e){}}
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════
+//  GPX
+// ═══════════════════════════════════════════════════
+function parseGPX(text,filename){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  let pts=Array.from(doc.querySelectorAll('trkpt'));
+  if(!pts.length)pts=Array.from(doc.querySelectorAll('rtept'));
+  if(!pts.length)pts=Array.from(doc.querySelectorAll('wpt'));
+  const coords=pts.map(p=>[parseFloat(p.getAttribute('lat')),parseFloat(p.getAttribute('lon'))]).filter(c=>!isNaN(c[0]));
+  if(coords.length<2)throw new Error('No points');
+  let date=null;
+  const te=doc.querySelector('time');
+  if(te){try{date=new Date(te.textContent.trim());if(isNaN(date))date=null;}catch(e){}}
+  const ne=doc.querySelector('trk > name')||doc.querySelector('name');
+  const gpxName=ne?.textContent?.trim()||filename.replace(/\.gpx$/i,'');
+  let distKm=0;
+  for(let i=1;i<coords.length;i++)distKm+=haversine(coords[i-1],coords[i]);
+  let dow=6;if(date){const d=date.getDay();dow=d===0?6:d-1;}
+  return{coords:coords.slice(0,2000),date:date?date.toISOString():null,distKm:Math.round(distKm*10)/10,gpxName,dayOfWeek:dow};
+}
+function haversine([a,b],[c,d]){const R=6371,dL=(c-a)*Math.PI/180,dl=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+
+// Attempt country detection from coords (reverse geocode first point — lightweight)
+async function detectCountry(coords){
+  if(!coords||!coords.length)return null;
+  try{
+    const [lat,lon]=coords[0];
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+    const d=await r.json();
+    return d.address?.country||null;
+  }catch(e){return null;}
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+function kennelColor(k){if(!kennelColorMap[k]){const n=Object.keys(kennelColorMap).length;kennelColorMap[k]=TRAIL_COLORS[n%TRAIL_COLORS.length];}return kennelColorMap[k];}
+
+function renderRun(run){
+  if(!run.coords||run.coords.length<2)return;
+  const col=kennelColor(run.kennelName||'Unknown');
+  const line=L.polyline(run.coords,{color:col,weight:3.5,opacity:0.85,smoothFactor:1});
+  const ds=run.date?new Date(run.date).toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'short',day:'numeric'}):'Date unknown';
+  line.bindPopup(`
+    <div class="pname">${run.trailName||'Unnamed Trail'}</div>
+    ${run.isHare?'<div class="phare">🐇 Hare set</div>':''}
+    <div class="prow">KENNEL &nbsp;<span>${run.kennelName||'Unknown'}</span></div>
+    <div class="prow">HASHER &nbsp;<span>${run.hasherName||'Anon'}</span></div>
+    <div class="prow">DATE &nbsp;&nbsp;&nbsp;<span>${ds}</span></div>
+    <div class="prow">DISTANCE &nbsp;<span>${run.distKm} km</span></div>
+    ${run.country?`<div class="prow">COUNTRY &nbsp;<span>${run.country}</span></div>`:''}
+    ${run.notes?`<div class="pnotes">${run.notes}</div>`:''}
+  `);
+  line.on('mouseover',function(){this.openPopup();});
+  line.on('mouseout',function(){this.closePopup();});
+  layers.push({line,dayIndex:run.dayOfWeek});
+  if(activeDays.has(run.dayOfWeek))line.addTo(map);
+}
+
+function refreshLayers(){
+  let v=0;
+  layers.forEach(({line,dayIndex})=>{
+    if(activeDays.has(dayIndex)){if(!map.hasLayer(line))line.addTo(map);v++;}
+    else{if(map.hasLayer(line))map.removeLayer(line);}
+  });
+  updateStats(v);
+}
+
+function updateStats(v){
+  const totalKm=Math.round(allRuns.reduce((s,r)=>s+(r.distKm||0),0)*10)/10;
+  const kCount=Object.keys(kennelColorMap).length;
+  const hasherCount=new Set(allRuns.map(r=>r.userId).filter(Boolean)).size;
+  document.getElementById('stat-total').textContent=allRuns.length;
+  document.getElementById('stat-km').textContent=totalKm;
+  document.getElementById('stat-kennels').textContent=kCount;
+  document.getElementById('stat-hashers').textContent=hasherCount;
+  document.getElementById('trail-pill').textContent=allRuns.length+' trails';
+  renderMapKennelList();renderKennelGrid();renderKLeague();renderILeague();renderKennelDatalist();
+}
+
+function renderMapKennelList(){
+  const el=document.getElementById('map-kennel-list');
+  const counts={};allRuns.forEach(r=>{const k=r.kennelName||'Unknown';counts[k]=(counts[k]||0)+1;});
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length){el.innerHTML='<div style="font-size:9px;color:rgba(245,240,232,0.2);font-style:italic;">No trails yet</div>';return;}
+  el.innerHTML=sorted.map(([k,n])=>`<div class="kennel-item" onclick="flyToKennel('${esc(k)}')"><div class="k-dot" style="background:${kennelColor(k)}"></div><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${k}</span><span class="k-count">${n}</span></div>`).join('');
+}
+function flyToKennel(k){const r=allRuns.find(x=>(x.kennelName||'Unknown')===k);if(r?.coords?.length)map.flyTo(r.coords[0],12,{duration:1.2});}
+
+function renderKennelDatalist(){
+  const names=[...new Set([...allRuns.map(r=>r.kennelName),...allKennels.map(k=>k.name)].filter(Boolean))];
+  ['kennel-datalist-auth','kennel-datalist-upload'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.innerHTML=names.map(n=>`<option value="${n}">`).join('');
+  });
+}
+
+function renderKennelGrid(){
+  const el=document.getElementById('kennel-grid');
+  const counts={},km={};
+  allRuns.forEach(r=>{const k=r.kennelName||'Unknown';counts[k]=(counts[k]||0)+1;km[k]=(km[k]||0)+(r.distKm||0);});
+  const regNames=new Set(allKennels.map(k=>k.name));
+  const runKennels=Object.keys(counts).filter(k=>!regNames.has(k)).map(k=>({id:'inf_'+k,name:k,location:'',url:'',about:'',logo:null}));
+  const combined=[...allKennels,...runKennels];
+  if(!combined.length){el.innerHTML='<div style="font-size:11px;color:rgba(245,240,232,0.2);font-style:italic;padding:20px;">No kennels registered yet — On On!</div>';return;}
+  el.innerHTML=combined.map(k=>{
+    const runs=counts[k.name]||0,totalKm=Math.round((km[k.name]||0)*10)/10;
+    return`<div class="kennel-card">
+      <div class="kc-logo">${k.logo?`<img src="${k.logo}" alt="">`:'🏃'}</div>
+      <div class="kc-name">${k.name}</div>
+      ${k.location?`<div class="kc-meta">📍 ${k.location}</div>`:''}
+      <div class="kc-meta">${runs} run${runs!==1?'s':''} · ${totalKm} km</div>
+      ${k.about?`<div style="font-size:9px;color:rgba(245,240,232,0.32);margin-top:4px;line-height:1.5">${k.about}</div>`:''}
+      ${k.url?`<a class="kc-link" href="${k.url}" target="_blank">🔗 ${k.url.replace(/^https?:\/\//,'')}</a>`:''}
+      <div class="kc-pips">${Array(Math.min(runs,14)).fill(0).map(()=>'<div class="kc-pip"></div>').join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  KENNEL LEAGUE
+// ═══════════════════════════════════════════════════
+function sortKLeague(by,btn){
+  kLeagueSort=by;
+  document.querySelectorAll('.sort-bar .sort-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderKLeague();
+}
+function renderKLeague(){
+  const counts={},km={};
+  allRuns.forEach(r=>{const k=r.kennelName||'Unknown';counts[k]=(counts[k]||0)+1;km[k]=(km[k]||0)+(r.distKm||0);});
+  let sorted=Object.entries(counts).map(([k,n])=>({name:k,runs:n,km:Math.round((km[k]||0)*10)/10}));
+  sorted.sort((a,b)=>kLeagueSort==='km'?b.km-a.km:b.runs-a.runs);
+  if(!sorted.length){document.getElementById('kleague-body').innerHTML='<tr><td colspan="6" style="text-align:center;padding:36px;font-size:10px;color:rgba(245,240,232,0.2);letter-spacing:2px;">NO TRAILS YET</td></tr>';return;}
+  const max=sorted[0][kLeagueSort==='km'?'km':'runs'];
+  const tr=['🥇','🥈','🥉'];
+  document.getElementById('kleague-body').innerHTML=sorted.map(({name,runs,km},i)=>{
+    const reg=allKennels.find(x=>x.name===name);
+    const pct=Math.round((kLeagueSort==='km'?km:runs)/max*100);
+    return`<tr>
+      <td><div class="rank-cell ${i<3?'r'+(i+1):'rx'}">${i<3?tr[i]:i+1}</div></td>
+      <td><div class="lt-logo">${reg?.logo?`<img src="${reg.logo}" alt="">`:'🏃'}</div></td>
+      <td><div class="lt-name">${name}</div>${reg?.location?`<div class="lt-sub">📍 ${reg.location}</div>`:''}</td>
+      <td><div class="lt-num">${runs}</div><div class="lt-numsub">runs</div></td>
+      <td><div class="lt-num">${km}</div><div class="lt-numsub">km</div></td>
+      <td><div class="prog-bar-wrap"><div class="prog-bar" style="width:${pct}%"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  INDIVIDUAL LEADERBOARD
+// ═══════════════════════════════════════════════════
+function sortILeague(by,btn){
+  iLeagueSort=by;
+  document.querySelectorAll('#page-ileague .sort-bar .sort-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderILeague();
+}
+function renderILeague(){
+  // Build stats per userId
+  const stats={};
+  allRuns.forEach(r=>{
+    const uid=r.userId;if(!uid)return;
+    if(!stats[uid])stats[uid]={runs:0,km:0,countries:new Set(),hare:0,kennels:new Set(),userId:uid};
+    stats[uid].runs++;
+    stats[uid].km+=r.distKm||0;
+    if(r.country)stats[uid].countries.add(r.country);
+    if(r.isHare)stats[uid].hare++;
+    if(r.kennelName)stats[uid].kennels.add(r.kennelName);
+  });
+  let rows=Object.values(stats).map(s=>({
+    ...s,km:Math.round(s.km*10)/10,
+    countries:s.countries.size,kennels:s.kennels.size,
+    user:allUsers.find(u=>u.id===s.userId)||{hashName:'Unknown',homeKennel:''}
+  }));
+  const sortMap={runs:'runs',km:'km',countries:'countries',hare:'hare',kennels:'kennels'};
+  const sk=sortMap[iLeagueSort]||'runs';
+  rows.sort((a,b)=>b[sk]-a[sk]);
+  if(!rows.length){document.getElementById('ileague-body').innerHTML='<tr><td colspan="9" style="text-align:center;padding:36px;font-size:10px;color:rgba(245,240,232,0.2);letter-spacing:2px;">NO HASHERS YET — BE THE FIRST!</td></tr>';return;}
+  const tr=['🥇','🥈','🥉'];
+  document.getElementById('ileague-body').innerHTML=rows.map((r,i)=>{
+    const badges=computeBadges(r);
+    const badgeHtml=badges.length?badges.slice(0,8).map(b=>`<div class="badge badge-${b.type}" title="${b.tip}">${b.icon}</div>`).join(''):'<span style="font-size:9px;color:rgba(245,240,232,0.2)">—</span>';
+    const isMe=currentUser&&r.userId===currentUser.id;
+    return`<tr style="${isMe?'background:rgba(82,183,136,0.06)':''}">
+      <td><div class="rank-cell ${i<3?'r'+(i+1):'rx'}">${i<3?tr[i]:i+1}</div></td>
+      <td>
+        <div class="lt-name">${r.user.hashName}${isMe?' <span style="font-size:8px;color:var(--moss);letter-spacing:1px">(you)</span>':''}</div>
+        <div class="lt-sub">${r.user.homeKennel||'No home kennel'}</div>
+      </td>
+      <td><div class="lt-sub">${r.user.homeKennel||'—'}</div></td>
+      <td><div class="lt-num">${r.runs}</div></td>
+      <td><div class="lt-num">${r.km}</div></td>
+      <td><div class="lt-num">${r.countries}</div></td>
+      <td><div class="lt-num">${r.hare}</div></td>
+      <td><div class="lt-num">${r.kennels}</div></td>
+      <td><div class="badge-rack">${badgeHtml}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  BADGE TOAST
+// ═══════════════════════════════════════════════════
+function checkNewBadges(prevStats,newStats){
+  const prev=computeBadges(prevStats);
+  const next=computeBadges(newStats);
+  const newOnes=next.filter(n=>!prev.find(p=>p.label===n.label));
+  newOnes.forEach((b,i)=>{
+    setTimeout(()=>{
+      document.getElementById('toast-body').textContent=b.icon+' '+b.label+' — '+b.tip;
+      const t=document.getElementById('toast');
+      t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'),3500);
+    },i*1000);
+  });
+}
+
+function getUserStats(uid){
+  const myRuns=allRuns.filter(r=>r.userId===uid);
+  return{runs:myRuns.length,km:Math.round(myRuns.reduce((s,r)=>s+(r.distKm||0),0)*10)/10,countries:new Set(myRuns.map(r=>r.country).filter(Boolean)).size,hare:myRuns.filter(r=>r.isHare).length};
+}
+
+// ═══════════════════════════════════════════════════
+//  DAY FILTER
+// ═══════════════════════════════════════════════════
+function toggleDay(day){const b=document.querySelector(`.day-btn[data-day="${day}"]`);activeDays.has(day)?(activeDays.delete(day),b.classList.remove('active')):(activeDays.add(day),b.classList.add('active'));refreshLayers();}
+
+// ═══════════════════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════════════════
+function switchUploadTab(t){
+  document.querySelectorAll('#overlay-upload .tab').forEach((b,i)=>b.classList.toggle('active',['files','gdrive'][i]===t));
+  document.querySelectorAll('#overlay-upload .tab-content').forEach((c,i)=>c.classList.toggle('active',['utab-files','utab-gdrive'][i]==='utab-'+t));
+  checkReady();
+}
+function handleDragOver(e){e.preventDefault();document.getElementById('file-drop').classList.add('dragover');}
+function handleDragLeave(e){document.getElementById('file-drop').classList.remove('dragover');}
+function handleDrop(e){e.preventDefault();document.getElementById('file-drop').classList.remove('dragover');setLocalFiles(Array.from(e.dataTransfer.files).filter(f=>f.name.toLowerCase().endsWith('.gpx')));}
+function handleFileSelect(e){setLocalFiles(Array.from(e.target.files));}
+function setLocalFiles(files){
+  selectedFiles=files;if(!files.length)return;
+  buildList('bl-files',files.map(f=>f.name));
+  document.getElementById('bi-files').style.display='block';
+  document.getElementById('pf-files').style.width='0%';
+  setStatus('upload-status',`${files.length} file${files.length>1?'s':''} ready`,'info');
+  document.getElementById('batch-summary').classList.remove('show');
+  checkReady();
+}
+function buildList(id,names){document.getElementById(id).innerHTML=names.map((n,i)=>`<div class="bli" id="bfi-${i}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px">${n}</span><span class="bw" id="badge-${i}" style="font-size:9px;padding:1px 5px;">waiting</span></div>`).join('');}
+function setBadge(i,c,t){const e=document.getElementById('badge-'+i);if(e){e.className=c;e.textContent=t;}}
+function setStatus(id,m,c){const e=document.getElementById(id);if(!e)return;e.textContent=m;e.className='status-msg'+(c?' '+c:'');}
+function checkReady(){
+  const ft=document.getElementById('utab-files').classList.contains('active');
+  document.getElementById('btn-submit').disabled=ft?!selectedFiles.length:!gdriveFiles.length;
+}
+
+async function submitRuns(){
+  if(!currentUser){showModal('auth');return;}
+  const ft=document.getElementById('utab-files').classList.contains('active');
+  await processBatch(ft?selectedFiles:gdriveFiles,ft?readLocalFile:readDriveFile,ft?'files':'gdrive');
+}
+
+async function processBatch(files,reader,suffix){
+  document.getElementById('btn-submit').disabled=true;
+  const hasherName=currentUser.hashName;
+  const kennelName=document.getElementById('u-kennel').value||currentUser.homeKennel||'Unknown Kennel';
+  const notes=document.getElementById('u-notes').value;
+  const isHare=document.getElementById('u-hare').checked;
+  const prevStats=getUserStats(currentUser.id);
+  let ok=0,err=0,totalKm=0;
+
+  for(let i=0;i<files.length;i++){
+    const f=files[i],fname=f.name||f.filename||'file.gpx';
+    setBadge(i,'bproc',`reading…`);
+    setStatus('upload-status',`Processing ${i+1} / ${files.length}: ${fname}`,'info');
+    try{
+      const text=await reader(f);
+      const{coords,date,distKm,gpxName,dayOfWeek}=parseGPX(text,fname);
+      const country=await detectCountry(coords);
+      const run={id:Date.now()+'_'+i,trailName:gpxName,hasherName,kennelName,notes,isHare,date,dayOfWeek,distKm,coords,userId:currentUser.id,country:country||null};
+      await saveRunShared(run);allRuns.push(run);renderRun(run);
+      totalKm+=distKm;ok++;setBadge(i,'bok',`✓ ${distKm}km`);
+    }catch(e){err++;setBadge(i,'berr','✗ skip');}
+    document.getElementById('pf-'+suffix).style.width=((i+1)/files.length*100)+'%';
+    await new Promise(r=>setTimeout(r,20));
+  }
+
+  const newStats=getUserStats(currentUser.id);
+  checkNewBadges(prevStats,newStats);
+  updateStats();setStatus('upload-status','','');
+  document.getElementById('sum-ok').textContent=ok;
+  document.getElementById('sum-err').textContent=err;
+  document.getElementById('sum-km').textContent=Math.round(totalKm*10)/10;
+  document.getElementById('batch-summary').classList.add('show');
+  selectedFiles=[];gdriveFiles=[];
+  document.getElementById('btn-submit').disabled=true;
+  if(currentUser)updateProfileModal();
+}
+function readLocalFile(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=()=>rej();r.readAsText(f);});}
+
+// ═══════════════════════════════════════════════════
+//  KENNEL REGISTRY
+// ═══════════════════════════════════════════════════
+function handleLogoSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{pendingLogoData=ev.target.result;const p=document.getElementById('logo-preview');p.innerHTML=`<img src="${pendingLogoData}" alt="">`;}; 
+  r.readAsDataURL(file);
+}
+async function submitKennel(){
+  const name=document.getElementById('k-name').value.trim();
+  if(!name){setStatus('kennel-status','⚠ Kennel name required','err');return;}
+  const k={id:Date.now().toString(),name,location:document.getElementById('k-location').value.trim(),url:document.getElementById('k-url').value.trim(),about:document.getElementById('k-about').value.trim(),logo:pendingLogoData||null};
+  await saveKennelShared(k);allKennels.push(k);
+  setStatus('kennel-status','✓ Kennel registered!','ok');
+  updateStats();setTimeout(()=>hideModal('kennel'),1000);pendingLogoData=null;
+}
+
+// ═══════════════════════════════════════════════════
+//  GOOGLE DRIVE
+// ═══════════════════════════════════════════════════
+function gapiLoaded(){gapi.load('client:picker',async()=>{try{await gapi.client.init({});await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');gapiReady=true;}catch(e){}});}
+function gisLoaded(){gisReady=true;}
+function gdriveSignIn(){
+  const cid=document.getElementById('gdrive-cid').value.trim();
+  if(!cid){setStatus('upload-status','⚠ Enter your Google API Client ID first','err');return;}
+  if(!gisReady){setStatus('upload-status','⚠ Google loading, try again shortly','err');return;}
+  tokenClient=google.accounts.oauth2.initTokenClient({client_id:cid,scope:'https://www.googleapis.com/auth/drive.readonly',callback:(r)=>{
+    if(r.error)return;
+    accessToken=r.access_token;gapi.client.setToken({access_token:accessToken});
+    document.getElementById('g-auth-status').textContent='✓ Signed in';document.getElementById('g-auth-status').className='auth-ok';
+    document.getElementById('btn-gauth').textContent='✓ Signed In';document.getElementById('btn-gpick').disabled=false;
+  }});tokenClient.requestAccessToken();
+}
+function gdrivePicker(){
+  if(!gapiReady||!accessToken)return;
+  new google.picker.PickerBuilder().addView(new google.picker.DocsView(google.picker.ViewId.FOLDERS).setSelectFolderEnabled(true)).setOAuthToken(accessToken).setCallback(async(data)=>{
+    if(data.action===google.picker.Action.PICKED){
+      const folder=data.docs[0];
+      document.getElementById('g-fname').textContent=folder.name;document.getElementById('g-folder-info').style.display='block';document.getElementById('g-fcount').textContent='Scanning…';
+      try{
+        const resp=await gapi.client.drive.files.list({q:`'${folder.id}' in parents and name contains '.gpx' and trashed=false`,fields:'files(id,name)',pageSize:500});
+        gdriveFiles=resp.result.files;document.getElementById('g-fcount').textContent=`${gdriveFiles.length} GPX files`;
+        buildList('bl-gdrive',gdriveFiles.map(f=>f.name));document.getElementById('bi-gdrive').style.display='block';document.getElementById('pf-gdrive').style.width='0%';checkReady();
+      }catch(e){document.getElementById('g-fcount').textContent='⚠ Could not read folder';}
+    }
+  }).build().setVisible(true);
+}
+async function readDriveFile(f){const r=await gapi.client.drive.files.get({fileId:f.id,alt:'media'});return r.body;}
+
+// ═══════════════════════════════════════════════════
+//  MODALS + NAV
+// ═══════════════════════════════════════════════════
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const labels={map:'🗺',kennels:'🏃',kleague:'🏆',ileague:'⭐'};
+  document.querySelectorAll('.nav-btn').forEach(b=>{if(b.textContent.startsWith(labels[id]||'?'))b.classList.add('active');});
+  if(id==='map')setTimeout(()=>map&&map.invalidateSize(),100);
+}
+function showModal(id){
+  document.getElementById('overlay-'+id).classList.add('open');
+  if(id==='upload'&&currentUser){document.getElementById('u-hasher').value=currentUser.hashName;document.getElementById('u-kennel').value=currentUser.homeKennel||'';}
+  if(id==='auth')switchAuth('register');
+  if(id==='upload'){const v=localStorage.getItem('gcid');if(v)document.getElementById('gdrive-cid').value=v;}
+}
+function hideModal(id){document.getElementById('overlay-'+id).classList.remove('open');}
+function handleOverlay(e,id){if(e.target===document.getElementById('overlay-'+id))hideModal(id);}
+function esc(s){return s.replace(/'/g,"\\'")}
+
+// ═══════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════
+async function boot(){
+  loadUsers();loadSession();
+  initMap();
+  await loadSharedData();
+  allRuns.forEach(r=>renderRun(r));
+  updateStats();updateUserUI();
+  locateUser();
+  setTimeout(()=>document.getElementById('loading').classList.add('hidden'),700);
+}
+boot();
+</script>
+</body>
+</html>
